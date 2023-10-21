@@ -28,7 +28,9 @@ def clamp(Input, LB, UB):
         Input = UB
     return Input
 
-Clutch_Engaged = False
+Ambient_Temperature_K = 300 # In kelvin
+
+Clutch_Engaged = True
 
 Moment_Of_Intertia = 1
 
@@ -47,7 +49,8 @@ torque_table = [ #{RPM, Torque} // Torque is in NM
 ]
 
 #Shift RPM, Gear
-Gear_Ratios = [[2.5, 6500], [2, 6000], [1.5, 6000], [1.3, 6000], [1, 6000]]
+Gear_Ratios = [[2.5, 7000], [2, 6500], [1.5, 6000], [1.3, 5700], [1.1, 0]]
+Final_Drive_Ratio = 2
 
 Throttle = 0.5
 
@@ -79,37 +82,45 @@ def Calc_Engine_RPM(Angular_Force, LOCAL_Load, LOCAL_RPM): # Force from combusti
 
     LOCAL_RPM +=  (Angular_Force - Friction - LOCAL_Load)
 
-    print(LOCAL_Load)
     LOCAL_RPM = clamp(LOCAL_RPM, 0, 999999)
     return LOCAL_RPM
 
-def Calc_Combustion_Force(Throttle, Cyl_Head_Area, AFR, Cyl_Count, Engine_Temp):
-    
+#
+def Calc_Combustion_Force(My_Throttle, Cyl_Head_Area, AFR, Cyl_Count, Engine_Temp_K):
+    Optimal_AFR = 12
+    Mult_Factor = 7.5
+    My_Combustion_Force = ((AFR - abs(AFR - (Optimal_AFR))) / Optimal_AFR) * Cyl_Head_Area * Cyl_Count * Mult_Factor + (Engine_Temp_K * .05) * My_Throttle
+    return My_Combustion_Force
 
+def Calc_Engine_Temperature
 
-def auto_gearbox(RPM):
+def auto_gearbox(MY_RPM):
     LOCAL_Gear = Gear
-    if (RPM > 5000 and Gear < 4):
+    if (MY_RPM > Gear_Ratios[Gear][1] and Gear < 4):
         return LOCAL_Gear + 1
-    elif (RPM < 1000 and Gear > 0):
+    elif (MY_RPM < 1000 and Gear > 0):
         return LOCAL_Gear - 1
     return LOCAL_Gear
 
-Combustion_Force = 600
-Shift_Delay = 0 # In ticks
-Base_Load = 300 # Weight of the vehicle
-for i in range(0, 100, 1):
-    Load = (1 / Gear_Ratios[Gear]) * Base_Load
-    if (Clutch_Engaged == False):
-        (1 / Gear_Ratios[Gear])
+
+# Combustion_Force = 500
+Combustion_Force = Calc_Combustion_Force(1, 15, 12, 4, 300)
+print("FORCE: ", Combustion_Force)
+Shift_Delay = 20 # In ticks
+Base_Load = 500 # Load the vehicle
+for i in range(0, 200, 1):
+    Load = (1 / Gear_Ratios[Gear][0]) * Base_Load
+    if (Clutch_Engaged):
+        Load = (1 / ((Gear_Ratios[Gear][0]) * Final_Drive_Ratio)) * Base_Load
         
     RPM = Calc_Engine_RPM(Combustion_Force, Load, RPM)
-    print("RPM: ", RPM , " | GEAR: " , Gear)
+    if i % 5 == 0:
+        print("RPM: ", RPM , " | GEAR: " , Gear)
     Torque = Calc_Engine_Torque(RPM)
-    Gear_Ratio = Gear_Ratios[Gear]
+    Gear_Ratio = Gear_Ratios[Gear][0]
     Tire_Radius = 2 # in ft
     Output_Force = Torque * Gear_Ratio * Tire_Radius
     Shift_Delay -= 1
     if (Shift_Delay < 0):
         Gear = auto_gearbox(RPM)
-        Shift_Delay = 10
+        Shift_Delay = 20
